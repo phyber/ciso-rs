@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 const CISO_MAGIC: u32 = 0x4F534943;
-const CISO_HEADER_SIZE: usize = 0x18; // 24 bytes
+const CISO_HEADER_SIZE: u32 = 0x18; // 24 bytes
 const CISO_BLOCK_SIZE: u32 = 0x800; // 2048 bytes
 
 #[derive(Debug)]
@@ -70,7 +70,7 @@ impl TryFrom<&mut File> for CisoHeader {
     type Error = CisoError;
 
     fn try_from(file: &mut File) -> Result<Self, CisoError> {
-        let mut buffer: [u8; CISO_HEADER_SIZE] = [0; CISO_HEADER_SIZE];
+        let mut buffer: [u8; CISO_HEADER_SIZE as usize] = [0; CISO_HEADER_SIZE as usize];
 
         file.read_exact(&mut buffer)
             .map_err(|_| CisoError::HeaderError)?;
