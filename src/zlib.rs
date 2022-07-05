@@ -44,8 +44,7 @@ where
     let header = CisoHeader::try_from(&mut infile).unwrap();
     println!("{}", header);
 
-    let total_blocks = (header.total_bytes() / header.block_size() as u64) as usize;
-
+    let total_blocks = header.total_blocks();
     let block_index = get_block_index(&mut infile, total_blocks)?;
 
     let mut outfile = File::options()

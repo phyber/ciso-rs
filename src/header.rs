@@ -36,6 +36,10 @@ impl CisoHeader {
         self.block_size
     }
 
+    pub fn total_blocks(&self) -> usize {
+        (self.total_bytes / self.block_size as u64) as usize
+    }
+
     pub fn total_bytes(&self) -> u64 {
         self.total_bytes
     }
