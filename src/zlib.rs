@@ -23,7 +23,7 @@ fn get_block_index(file: &mut File, total_blocks: usize) -> Result<Vec<u32>> {
     let mut buffer: [u8; 4] = [0; 4];
 
     for _i in 0..total_blocks + 1 {
-        file.read_exact(&mut buffer).unwrap();
+        file.read_exact(&mut buffer)?;
 
         let index = u32::from_le_bytes(buffer.try_into()?);
 
