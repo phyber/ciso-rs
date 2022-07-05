@@ -18,13 +18,13 @@ pub enum CisoError {
 
 #[derive(Clone, Debug)]
 pub struct CisoHeader {
-    magic:       Vec<u8>,
+    magic:       [u8; 4],
     header_size: u32,
     total_bytes: u64,
     block_size:  u32,
     version:     u8,
     align:       u8,
-    _reserved:   Vec<u8>,
+    _reserved:   [u8; 2],
 }
 
 impl CisoHeader {
@@ -43,18 +43,25 @@ impl CisoHeader {
     pub fn total_bytes(&self) -> u64 {
         self.total_bytes
     }
+
+    pub unsafe fn as_bytes(&self) -> &[u8] {
+        ::std::slice::from_raw_parts(
+            (self as *const Self) as *const u8,
+            ::std::mem::size_of::<&Self>(),
+        )
+    }
 }
 
 impl Default for CisoHeader {
     fn default() -> Self {
         Self {
-            magic:       Vec::new(),
+            magic:       [0; 4],
             header_size: 0,
             total_bytes: 0,
-            block_size:  CISO_BLOCK_SIZE,
+            block_size:  0,
             version:     0,
             align:       0,
-            _reserved:   Vec::new(),
+            _reserved:   [0; 2],
         }
     }
 }
@@ -76,13 +83,13 @@ impl TryFrom<&mut File> for CisoHeader {
         }
 
         let header = CisoHeader {
-            magic: magic.to_vec(),
+            magic:       magic,
             header_size: u32::from_le_bytes(buffer[4..8].try_into().unwrap()),
             total_bytes: u64::from_le_bytes(buffer[8..16].try_into().unwrap()),
-            block_size: u32::from_le_bytes(buffer[16..20].try_into().unwrap()),
-            version: buffer[20],
-            align: buffer[21],
-            _reserved: vec![buffer[22], buffer[23]],
+            block_size:  u32::from_le_bytes(buffer[16..20].try_into().unwrap()),
+            version:     buffer[20],
+            align:       buffer[21],
+            _reserved:   [buffer[22], buffer[23]],
         };
 
         if header.block_size == 0 || header.total_bytes == 0 {
