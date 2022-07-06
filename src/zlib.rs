@@ -99,7 +99,7 @@ where
     );
 
     // Start processing blocks
-    for block in 0..header.total_blocks() {
+    for index in block_index.iter_mut().take(header.total_blocks()) {
         // Write alignment
         let mut align = write_pos & align_m;
 
@@ -113,7 +113,7 @@ where
 
         // Mark offset index
         let block_offset = (write_pos >> header.align()) as u32;
-        block_index[block] = block_offset;
+        *index = block_offset;
 
         // Read a block of data from input file
         let data = infile.read_size(header.block_size() as u64)?;
@@ -130,7 +130,7 @@ where
         // Figure out which data we're going to write
         let writable_data = if compressed_size >= data_size {
             // Set the plain block marker
-            block_index[block] |= 0x80000000;
+            *index |= 0x80000000;
             write_pos += data_size as u64;
             data
         }
