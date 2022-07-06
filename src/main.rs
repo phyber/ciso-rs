@@ -18,10 +18,8 @@ fn main() -> Result<()>{
     let outfile = &args[3];
 
     match mode.as_str() {
-        "compress" => {},
-        "decompress" => {
-            zlib::decompress(infile, outfile)?;
-        },
+        "compress"   => zlib::compress(infile, outfile)?,
+        "decompress" => zlib::decompress(infile, outfile)?,
         _ => {
             eprintln!("Unknown mode: {}", mode);
             ::std::process::exit(1);

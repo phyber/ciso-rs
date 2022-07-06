@@ -17,6 +17,7 @@ pub enum CisoError {
 }
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub struct CisoHeader {
     magic:       [u8; 4],
     header_size: u32,
@@ -28,6 +29,17 @@ pub struct CisoHeader {
 }
 
 impl CisoHeader {
+    pub fn new_with_total_bytes(total_bytes: u64) -> Self {
+        Self {
+            magic:       CISO_MAGIC.to_le_bytes(),
+            header_size: CISO_HEADER_SIZE,
+            total_bytes: total_bytes,
+            block_size:  CISO_BLOCK_SIZE,
+            version:     1,
+            ..Self::default()
+        }
+    }
+
     pub fn align(&self) -> u8 {
         self.align
     }
@@ -40,15 +52,19 @@ impl CisoHeader {
         (self.total_bytes / self.block_size as u64) as usize
     }
 
-    pub fn total_bytes(&self) -> u64 {
-        self.total_bytes
-    }
-
+    // There might be a safe way of doing this, if so, replace this.
     pub unsafe fn as_bytes(&self) -> &[u8] {
         ::std::slice::from_raw_parts(
             (self as *const Self) as *const u8,
-            ::std::mem::size_of::<&Self>(),
+            ::std::mem::size_of::<Self>(),
         )
+    }
+
+    pub fn to_file(&self, file: &mut File) -> Result<()> {
+        let data = unsafe { self.as_bytes() };
+        let ok = file.write_all(&data)?;
+
+        Ok(ok)
     }
 }
 
@@ -79,6 +95,7 @@ impl TryFrom<&mut File> for CisoHeader {
         let magic: [u8; 4] = [buffer[0], buffer[1], buffer[2], buffer[3]];
 
         if u32::from_le_bytes(magic) != CISO_MAGIC {
+            eprintln!("invalid file magic");
             return Err(CisoError::MagicError);
         }
 
@@ -93,7 +110,16 @@ impl TryFrom<&mut File> for CisoHeader {
         };
 
         if header.block_size == 0 || header.total_bytes == 0 {
+            eprintln!(
+                "invalid block_size ({}) or total_bytes ({})",
+                header.block_size,
+                header.total_bytes,
+            );
             return Err(CisoError::HeaderError);
+        }
+
+        if header.header_size != CISO_HEADER_SIZE {
+            eprintln!("Incorrect header size found, ignoring.");
         }
 
         println!("HEADER: {:#?}", header);

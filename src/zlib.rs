@@ -3,16 +3,23 @@ use anyhow::{
     Result,
 };
 use flate2::{
+    Compress,
+    Compression,
     Decompress,
+    FlushCompress,
     FlushDecompress,
 };
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{
+    prelude::*,
+    SeekFrom,
+};
 use std::path::Path;
 
 use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
 
+const CISO_HEADER_SIZE: u32 = 0x18; // 24 bytes
 const CISO_BLOCK_SIZE: u32 = 0x800; // 2048 bytes
 const CISO_WINDOW_SIZE: u8 = 15; // Window size
 
@@ -31,6 +38,118 @@ fn get_block_index(file: &mut File, total_blocks: usize) -> Result<Vec<u32>> {
     }
 
     Ok(block_index)
+}
+
+fn write_block_index(file: &mut File, block_index: &[u32]) -> Result<()> {
+    // Seek to after the header, which is where the block index lives.
+    file.seek(SeekFrom::Start(CISO_HEADER_SIZE as u64))?;
+
+    for block in block_index {
+        let bytes = block.to_le_bytes();
+
+        file.write_all(&bytes)?;
+    }
+
+    Ok(())
+}
+
+pub fn compress<P>(infile: P, outfile: P) -> Result<()>
+where
+    P: AsRef<Path>,
+{
+    // ISO file to compress
+    let mut infile = File::options()
+        .read(true)
+        .open(infile)?;
+
+    // Compressed CSO output
+    let mut outfile = File::options()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(outfile)?;
+
+    // Get the input file size, needed for the header.
+    let file_size = infile.metadata()?.len();
+
+    let header = CisoHeader::new_with_total_bytes(file_size);
+    println!("HEADER: {:#?}", header);
+
+    // Write the header to the output file
+    header.to_file(&mut outfile)?;
+
+    // Our actual block index storage while we're compressing things
+    let block_capacity = header.total_blocks() + 1;
+    let mut block_index: Vec<u32> = Vec::with_capacity(block_capacity);
+    block_index.resize(block_capacity, 0);
+
+    // Write out the blank block index
+    write_block_index(&mut outfile, &block_index)?;
+
+    let alignment_buffer: [u8; 64] = [0; 64];
+    let mut write_pos = outfile.stream_position()?;
+    let align_b = 1 << header.align();
+    let align_m = align_b - 1;
+
+    // Reuse the same compressor through all operations.
+    // Must remember to reset it for each loop.
+    let mut compressor = Compress::new_with_window_bits(
+        Compression::new(9),
+        false,
+        CISO_WINDOW_SIZE,
+    );
+
+    // Start processing blocks
+    for block in 0..header.total_blocks() {
+        // Write alignment
+        let mut align = write_pos & align_m;
+
+        if align != 0 {
+            println!("Aligning with alignment of: {}", align);
+            align = align_b - align_m;
+            println!("Fixed up alignment: {}", align);
+            outfile.write_all(&alignment_buffer[0..align as usize])?;
+            write_pos += align;
+        }
+
+        // Mark offset index
+        let block_offset = (write_pos >> header.align()) as u32;
+        block_index[block] = block_offset;
+
+        // Read a block of data from input file
+        let data = infile.read_size(header.block_size() as u64)?;
+        let data_size = data.len();
+
+        // Buffer to throw compressed data into
+        let mut buffer: [u8; (CISO_BLOCK_SIZE * 2) as usize] = [0; (CISO_BLOCK_SIZE * 2) as usize];
+
+        compressor.compress(&data, &mut buffer, FlushCompress::Finish)?;
+
+        let compressed_size = compressor.total_out() as usize;
+        compressor.reset();
+
+        // Figure out which data we're going to write
+        let writable_data = if compressed_size >= data_size {
+            // Set the plain block marker
+            block_index[block] |= 0x80000000;
+            write_pos += data_size as u64;
+            data
+        }
+        else {
+            write_pos += compressed_size as u64;
+            buffer[0..compressed_size].to_vec()
+        };
+
+        outfile.write_all(&writable_data)?;
+    }
+
+    // Set the final block to the total size
+    block_index[header.total_blocks()] = write_pos as u32 >> header.align();
+
+    // Write out the block index
+    write_block_index(&mut outfile, &block_index)?;
+
+    Ok(())
 }
 
 pub fn decompress<P>(infile: P, outfile: P) -> Result<()>
