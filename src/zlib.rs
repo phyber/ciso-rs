@@ -139,6 +139,9 @@ where
         .write(true)
         .open(outfile)?;
 
+    // Decompressed data ends up here before being written
+    let mut buffer = vec![0u8; CISO_BLOCK_SIZE as usize];
+
     for block in 0..total_blocks {
         let index = block_index.get(block);
 
@@ -170,7 +173,7 @@ where
         let data = infile.read_size_at(read_size, read_pos)?;
 
         let decompressed_data = if plain {
-            data
+            &data
         }
         else {
             // No header on our data, and a custom window size.
@@ -179,13 +182,12 @@ where
                 CISO_WINDOW_SIZE,
             );
 
-            let mut buffer = vec![0u8; CISO_BLOCK_SIZE as usize];
             d.decompress(&data, &mut buffer, FlushDecompress::None)?;
 
-            buffer
+            &buffer
         };
 
-        outfile.write_all(&decompressed_data)?;
+        outfile.write_all(decompressed_data)?;
     }
 
     Ok(())
