@@ -1,7 +1,5 @@
 // ciso: Compress and decompress PSP ISOs
-use anyhow::{
-    Result,
-};
+use anyhow::Result;
 use flate2::{
     Compress,
     Compression,
@@ -12,47 +10,18 @@ use flate2::{
 use std::fs::File;
 use std::io::{
     prelude::*,
-    SeekFrom,
 };
 use std::path::Path;
 
+use crate::block_index::BlockIndex;
 use crate::consts::{
     CISO_BLOCK_SIZE,
-    CISO_HEADER_SIZE,
     CISO_WINDOW_SIZE,
 };
 use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
 
 type BlockBuffer = [u8; CISO_BLOCK_SIZE as usize];
-
-fn get_block_index(file: &mut File, total_blocks: usize) -> Result<Vec<u32>> {
-    let mut block_index = Vec::new();
-    let mut buffer: [u8; 4] = [0; 4];
-
-    for _i in 0..total_blocks + 1 {
-        file.read_exact(&mut buffer)?;
-
-        let index = u32::from_le_bytes(buffer);
-
-        block_index.push(index);
-    }
-
-    Ok(block_index)
-}
-
-fn write_block_index(file: &mut File, block_index: &[u32]) -> Result<()> {
-    // Seek to after the header, which is where the block index lives.
-    file.seek(SeekFrom::Start(CISO_HEADER_SIZE as u64))?;
-
-    for block in block_index {
-        let bytes = block.to_le_bytes();
-
-        file.write_all(&bytes)?;
-    }
-
-    Ok(())
-}
 
 pub fn compress<P>(infile: P, outfile: P) -> Result<()>
 where
@@ -81,10 +50,11 @@ where
 
     // Our actual block index storage while we're compressing things
     let block_capacity = header.total_blocks() + 1;
-    let mut block_index = vec![0u32; block_capacity];
+    let mut block_index = BlockIndex::new(block_capacity);
 
-    // Write out the blank block index
-    write_block_index(&mut outfile, &block_index)?;
+    // Write out the blank block index. We'll overwrite this with the real
+    // index later.
+    block_index.write_to(&mut outfile)?;
 
     let alignment_buffer: [u8; 64] = [0; 64];
     let mut write_pos = outfile.stream_position()?;
@@ -105,9 +75,7 @@ where
         let mut align = write_pos & align_m;
 
         if align != 0 {
-            println!("Aligning with alignment of: {}", align);
             align = align_b - align_m;
-            println!("Fixed up alignment: {}", align);
             outfile.write_all(&alignment_buffer[0..align as usize])?;
             write_pos += align;
         }
@@ -144,10 +112,10 @@ where
     }
 
     // Set the final block to the total size
-    block_index[header.total_blocks()] = write_pos as u32 >> header.align();
+    block_index.set(header.total_blocks(), write_pos as u32 >> header.align());
 
     // Write out the block index
-    write_block_index(&mut outfile, &block_index)?;
+    block_index.write_to(&mut outfile)?;
 
     Ok(())
 }
@@ -164,7 +132,8 @@ where
     println!("{}", header);
 
     let total_blocks = header.total_blocks();
-    let block_index = get_block_index(&mut infile, total_blocks)?;
+    let mut block_index = BlockIndex::new(total_blocks + 1);
+    block_index.read_from(&mut infile)?;
 
     let mut outfile = File::options()
         .create(true)
@@ -173,7 +142,7 @@ where
         .open(outfile)?;
 
     for block in 0..total_blocks {
-        let index = block_index[block];
+        let index = block_index.get(block);
 
         // Masks off the top most bit to see if the block is compressed
         let plain = index & 0x80000000 != 0;
@@ -192,7 +161,7 @@ where
             // If it's a compressed block, we also get the next block and read
             // some more.
             let next_block = (block + 1) as usize;
-            let index2 = block_index[next_block] & 0x7fffffff;
+            let index2 = block_index.get(next_block) & 0x7fffffff;
             let read_size = (index2 - index) << header.align();
 
             read_size as u64
