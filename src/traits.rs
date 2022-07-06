@@ -2,7 +2,6 @@
 use std::fs::File;
 use std::io::{
     prelude::*,
-    BufReader,
     Error,
     SeekFrom,
 };
@@ -17,27 +16,15 @@ impl ReadSizeAt for File {
         // Seek to the correct location in the file
         self.seek(SeekFrom::Start(offset))?;
 
-        // Set up our output and readers
-        let mut data = Vec::new();
-        let reader = BufReader::new(self);
-        let mut chunk = reader.take(size);
-
         // Attempt to read
-        let _n = chunk.read_to_end(&mut data)?;
-        //assert_eq!(size as usize, n);
+        let data = self.read_size(size)?;
 
         Ok(data)
     }
 
     fn read_size(&mut self, size: u64) -> Result<Vec<u8>, Error> {
-        //let reader = BufReader::new(self);
-        //let mut chunk = reader.take(size);
-
         // Attempt to read
-        let size = size as usize;
-        let mut data = Vec::with_capacity(size);
-        data.resize(size, 0);
-        //let _n = chunk.read_to_end(&mut data)?;
+        let mut data = vec![0u8; size as usize];
         self.read_exact(&mut data)?;
 
         Ok(data)
