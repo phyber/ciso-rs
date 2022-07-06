@@ -16,12 +16,13 @@ use std::io::{
 };
 use std::path::Path;
 
+use crate::consts::{
+    CISO_BLOCK_SIZE,
+    CISO_HEADER_SIZE,
+    CISO_WINDOW_SIZE,
+};
 use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
-
-const CISO_HEADER_SIZE: u32 = 0x18; // 24 bytes
-const CISO_BLOCK_SIZE: u32 = 0x800; // 2048 bytes
-const CISO_WINDOW_SIZE: u8 = 15; // Window size
 
 type BlockBuffer = [u8; CISO_BLOCK_SIZE as usize];
 

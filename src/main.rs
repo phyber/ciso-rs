@@ -1,6 +1,7 @@
 // ciso: Compress and decompress PSP ISOs
 use anyhow::Result;
 
+mod consts;
 mod header;
 mod traits;
 mod zlib;

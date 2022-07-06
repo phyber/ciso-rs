@@ -6,9 +6,11 @@ use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
 
-const CISO_MAGIC: u32 = 0x4F534943;
-const CISO_HEADER_SIZE: u32 = 0x18; // 24 bytes
-const CISO_BLOCK_SIZE: u32 = 0x800; // 2048 bytes
+use crate::consts::{
+    CISO_BLOCK_SIZE,
+    CISO_HEADER_SIZE,
+    CISO_MAGIC,
+};
 
 #[derive(Debug)]
 pub enum CisoError {
