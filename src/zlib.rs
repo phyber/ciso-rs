@@ -21,8 +21,6 @@ use crate::consts::{
 use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
 
-type BlockBuffer = [u8; CISO_BLOCK_SIZE as usize];
-
 pub fn compress<P>(infile: P, outfile: P) -> Result<()>
 where
     P: AsRef<Path>,
@@ -69,6 +67,9 @@ where
         CISO_WINDOW_SIZE,
     );
 
+    // Buffer to throw compressed data into
+    let mut buffer = vec![0u8; (CISO_BLOCK_SIZE * 2) as usize];
+
     // Start processing blocks
     for index in block_index.iter_mut().take(header.total_blocks()) {
         // Write alignment
@@ -87,9 +88,6 @@ where
         // Read a block of data from input file
         let data = infile.read_size(header.block_size() as u64)?;
         let data_size = data.len();
-
-        // Buffer to throw compressed data into
-        let mut buffer: [u8; (CISO_BLOCK_SIZE * 2) as usize] = [0; (CISO_BLOCK_SIZE * 2) as usize];
 
         compressor.compress(&data, &mut buffer, FlushCompress::Finish)?;
 
@@ -180,11 +178,11 @@ where
                 false,
                 CISO_WINDOW_SIZE,
             );
-            let mut buffer: BlockBuffer = [0; CISO_BLOCK_SIZE as usize];
 
+            let mut buffer = vec![0u8; CISO_BLOCK_SIZE as usize];
             d.decompress(&data, &mut buffer, FlushDecompress::None)?;
 
-            buffer.to_vec()
+            buffer
         };
 
         outfile.write_all(&decompressed_data)?;
