@@ -16,7 +16,7 @@ pub enum CisoError {
     MagicError,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[repr(C)]
 pub struct CisoHeader {
     magic:       [u8; 4],
@@ -31,9 +31,9 @@ pub struct CisoHeader {
 impl CisoHeader {
     pub fn new_with_total_bytes(total_bytes: u64) -> Self {
         Self {
+            total_bytes,
             magic:       CISO_MAGIC.to_le_bytes(),
             header_size: CISO_HEADER_SIZE,
-            total_bytes: total_bytes,
             block_size:  CISO_BLOCK_SIZE,
             version:     1,
             ..Self::default()
@@ -60,25 +60,9 @@ impl CisoHeader {
         )
     }
 
-    pub fn to_file(&self, file: &mut File) -> Result<()> {
+    pub fn to_file(&self, file: &mut File) -> Result<(), ::std::io::Error> {
         let data = unsafe { self.as_bytes() };
-        let ok = file.write_all(&data)?;
-
-        Ok(ok)
-    }
-}
-
-impl Default for CisoHeader {
-    fn default() -> Self {
-        Self {
-            magic:       [0; 4],
-            header_size: 0,
-            total_bytes: 0,
-            block_size:  0,
-            version:     0,
-            align:       0,
-            _reserved:   [0; 2],
-        }
+        file.write_all(data)
     }
 }
 
@@ -100,7 +84,7 @@ impl TryFrom<&mut File> for CisoHeader {
         }
 
         let header = CisoHeader {
-            magic:       magic,
+            magic,
             header_size: u32::from_le_bytes(buffer[4..8].try_into().unwrap()),
             total_bytes: u64::from_le_bytes(buffer[8..16].try_into().unwrap()),
             block_size:  u32::from_le_bytes(buffer[16..20].try_into().unwrap()),

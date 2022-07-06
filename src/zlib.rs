@@ -32,7 +32,7 @@ fn get_block_index(file: &mut File, total_blocks: usize) -> Result<Vec<u32>> {
     for _i in 0..total_blocks + 1 {
         file.read_exact(&mut buffer)?;
 
-        let index = u32::from_le_bytes(buffer.try_into()?);
+        let index = u32::from_le_bytes(buffer);
 
         block_index.push(index);
     }
@@ -80,8 +80,7 @@ where
 
     // Our actual block index storage while we're compressing things
     let block_capacity = header.total_blocks() + 1;
-    let mut block_index: Vec<u32> = Vec::with_capacity(block_capacity);
-    block_index.resize(block_capacity, 0);
+    let mut block_index = vec![0u32; block_capacity];
 
     // Write out the blank block index
     write_block_index(&mut outfile, &block_index)?;
