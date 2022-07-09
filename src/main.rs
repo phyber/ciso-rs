@@ -1,31 +1,32 @@
 // ciso: Compress and decompress PSP ISOs
 use anyhow::Result;
+use std::path::PathBuf;
 
 mod block_index;
+mod cli;
 mod consts;
 mod header;
 mod traits;
 mod zlib;
 
 fn main() -> Result<()>{
-    let args: Vec<String> = ::std::env::args().collect();
+    let args = cli::parse_args();
 
-    if args.len() < 4 {
-        eprintln!("Usage: ciso mode infile outfile");
-        ::std::process::exit(1);
-    }
+    match args.subcommand() {
+        Some(("compress", matches)) => {
+            let level = *matches.get_one::<u32>("COMPRESSION_LEVEL").unwrap();
+            let infile = matches.get_one::<PathBuf>("INFILE").unwrap();
+            let outfile = matches.get_one::<PathBuf>("OUTFILE").unwrap();
 
-    let mode = &args[1];
-    let infile = &args[2];
-    let outfile = &args[3];
-
-    match mode.as_str() {
-        "compress"   => zlib::compress(infile, outfile)?,
-        "decompress" => zlib::decompress(infile, outfile)?,
-        _ => {
-            eprintln!("Unknown mode: {}", mode);
-            ::std::process::exit(1);
+            zlib::compress(level, infile, outfile)?;
         },
+        Some(("decompress", matches)) => {
+            let infile = matches.get_one::<PathBuf>("INFILE").unwrap();
+            let outfile = matches.get_one::<PathBuf>("OUTFILE").unwrap();
+
+            zlib::decompress(infile, outfile)?;
+        },
+        _ => unreachable!(),
     }
 
     Ok(())

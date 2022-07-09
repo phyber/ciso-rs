@@ -22,7 +22,7 @@ use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
 
 // Compress the given ISO (infile) to a CSO (outfile)
-pub fn compress<P>(infile: P, outfile: P) -> Result<()>
+pub fn compress<P>(level: u32, infile: P, outfile: P) -> Result<()>
 where
     P: AsRef<Path>,
 {
@@ -63,7 +63,7 @@ where
     // Reuse the same compressor through all operations.
     // Must remember to reset it for each loop.
     let mut compressor = Compress::new_with_window_bits(
-        Compression::new(9),
+        Compression::new(level),
         false,
         CISO_WINDOW_SIZE,
     );
