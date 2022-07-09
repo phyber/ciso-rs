@@ -21,6 +21,7 @@ use crate::consts::{
 use crate::header::CisoHeader;
 use crate::traits::ReadSizeAt;
 
+// Compress the given ISO (infile) to a CSO (outfile)
 pub fn compress<P>(infile: P, outfile: P) -> Result<()>
 where
     P: AsRef<Path>,
@@ -118,6 +119,7 @@ where
     Ok(())
 }
 
+// Decompress the given CSO (infile) to an ISO (outfile)
 pub fn decompress<P>(infile: P, outfile: P) -> Result<()>
 where
     P: AsRef<Path>,
@@ -129,10 +131,12 @@ where
     let header = CisoHeader::try_from(&mut infile).unwrap();
     println!("{}", header);
 
+    // Get the block index from infile
     let total_blocks = header.total_blocks();
     let mut block_index = BlockIndex::new(total_blocks + 1);
     block_index.read_from(&mut infile)?;
 
+    // Prepare the outfile
     let mut outfile = File::options()
         .create(true)
         .truncate(true)
