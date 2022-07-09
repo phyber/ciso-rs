@@ -55,14 +55,14 @@ impl CisoHeader {
 
     // Derive the total blocks from information in the header
     pub fn total_blocks(&self) -> usize {
-        (self.total_bytes / self.block_size as u64) as usize
+        (self.total_bytes / u64::from(self.block_size)) as usize
     }
 
     // There might be a safe way of doing this, if so, replace this.
     // Get the header as a byte array, in preparation for writing it to disk.
     pub unsafe fn as_bytes(&self) -> &[u8] {
         ::std::slice::from_raw_parts(
-            (self as *const Self) as *const u8,
+            (self as *const Self).cast::<u8>(),
             ::std::mem::size_of::<Self>(),
         )
     }

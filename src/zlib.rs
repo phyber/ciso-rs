@@ -87,7 +87,7 @@ where
         *index = block_offset;
 
         // Read a block of data from input file
-        let data = infile.read_size(header.block_size() as u64)?;
+        let data = infile.read_size(u64::from(header.block_size()))?;
         let data_size = data.len();
 
         compressor.compress(&data, &mut buffer, FlushCompress::Finish)?;
@@ -98,7 +98,7 @@ where
         // Figure out which data we're going to write
         let writable_data = if compressed_size >= data_size {
             // Set the plain block marker
-            *index |= 0x80000000;
+            *index |= 0x8000_0000;
             write_pos += data_size as u64;
             data
         }
@@ -150,26 +150,26 @@ where
         let index = block_index.get(block);
 
         // Masks off the top most bit to see if the block is compressed
-        let plain = index & 0x80000000 != 0;
+        let plain = index & 0x8000_0000 != 0;
 
         // Get the actual position of the block
-        let index = index & 0x7fffffff;
+        let index = index & 0x7fff_ffff;
 
         // Get the read position of the block in the compressed file
-        let read_pos = (index << header.align()) as u64;
+        let read_pos = u64::from(index << header.align());
 
         let read_size = if plain {
             // If it's a plain block, use the full block size as the read size.
-            header.block_size() as u64
+            u64::from(header.block_size())
         }
         else {
             // If it's a compressed block, we also get the next block and read
             // some more.
             let next_block = (block + 1) as usize;
-            let index2 = block_index.get(next_block) & 0x7fffffff;
+            let index2 = block_index.get(next_block) & 0x7fff_ffff;
             let read_size = (index2 - index) << header.align();
 
-            read_size as u64
+            u64::from(read_size)
         };
 
         // Should error if we can't read the size of buffer

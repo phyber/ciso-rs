@@ -6,7 +6,7 @@ pub const CISO_BLOCK_SIZE: u32 = 0x800;
 pub const CISO_HEADER_SIZE: u32 = 0x18;
 
 // File header magic, "CISO" in ASCII, little endian.
-pub const CISO_MAGIC: u32 = 0x4F534943;
+pub const CISO_MAGIC: u32 = 0x4F53_4943;
 
 // Window size for compression is 15, with no compression header.
 pub const CISO_WINDOW_SIZE: u8 = 15;

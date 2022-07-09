@@ -49,7 +49,7 @@ impl BlockIndex {
     // Seeks to after the file header before writing.
     pub fn write_to(&mut self, file: &mut File) -> Result<()> {
         // Seek to after the header, which is where the block index lives.
-        file.seek(SeekFrom::Start(CISO_HEADER_SIZE as u64))?;
+        file.seek(SeekFrom::Start(u64::from(CISO_HEADER_SIZE)))?;
 
         for block in &self.0 {
             let bytes = block.to_le_bytes();
