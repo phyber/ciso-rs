@@ -1,7 +1,5 @@
 // ciso: Compress and decompress PSP ISOs
-use anyhow::{
-    Result,
-};
+use anyhow::Result;
 use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
